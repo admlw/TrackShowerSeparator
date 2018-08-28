@@ -1,0 +1,27 @@
+#
+# configuration fcl file for NuMuSelection fcl parameters
+#
+
+BEGIN_PROLOG
+
+trackshowerproducerlabels:
+{
+  
+  SelectionLabel: "UBXSec::UBXSec"
+  PFPLabel: "pandoraNu::UBXSec"
+  TrackLabel: "pandoraNu::UBXSec"
+  ShowerLabel: "pandoraNu::UBXSec"
+  ClusterLabel: "pandoraNu::UBXSec"
+  HitLabel: "pandoraCosmicHitRemoval::UBXSec"
+
+  SelectionTPCObjAssn: "UBXSec::UBXSec"
+  PFPTrackAssn: "pandoraNu::UBXSec"
+  PFPShowerAssn: "pandoraNu::UBXSec"
+  TrackHitAssn: "pandoraNu::UBXSec"
+  ShowerHitAssn: "pandoraNu::UBXSec"
+  PFPClusterAssn: "pandoraNu::UBXSec"
+  HitTruthAssns: "crHitRemovalTruthMatch::UBXSec"
+
+}
+
+END_PROLOG
