@@ -6,14 +6,14 @@ set( ROOTLIB -L$ENV{ROOTSYS}/lib -lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpa
 link_libraries( ${LIB_NAME} -L$ENV{BOOST_LIB} -lboost_system ${ROOTLIB})
 
 art_make( BASENAME_ONLY
-  LIBRARY_NAME uboonecode_uboone_ParticleID
+  LIBRARY_NAME uboonecode_uboone_TrackShowerSeparator
   LIB_LIBRARIES
-  uboonecode_uboone_ParticleID_Algorithms
+  uboonecode_uboone_TrackShowerSeparator_Algorithms
 
   MODULE_LIBRARIES 
   uboonecode_uboone_UBXSec_DataTypes
   uboonecode_uboone_UBXSec_Algorithms
-  uboonecode_uboone_ParticleID_Algorithms
+  uboonecode_uboone_TrackShowerSeparator_Algorithms
   larcore_Geometry
   larcore_Geometry_Geometry_service
   larsim_Simulation nutools_ParticleNavigation lardataobj_Simulation

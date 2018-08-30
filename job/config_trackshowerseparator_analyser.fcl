@@ -9,8 +9,18 @@ BEGIN_PROLOG
 trackshowerseparatorconfig:
 {
 
-  module_type:     "TrackShowerSeparatorAnaT"
+  module_type:     "TrackShowerSeparatorAna"
   ProducerLabels: @local::trackshowerproducerlabels
+  IsData: false
+
+}
+
+trackshowerseparatorconfig_data:
+{
+
+  module_type:     "TrackShowerSeparatorAna"
+  ProducerLabels: @local::trackshowerproducerlabels
+  IsData: true
 
 }
 
