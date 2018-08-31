@@ -466,7 +466,8 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
 
       // get PFP-associated space points
       std::vector<art::Ptr<recob::SpacePoint>> spacepointFromPfparticle = pfpToSpacePoint.at(pfp.Self());
-      std::vector<art::Ptr<recob::SpacePoint>> sortedSpacePointCollection = _sputility.getSortedSPList(spacepointFromPfparticle, vertex);
+      // options for string argument here are VertexDistance or NearestNeighbour
+      std::vector<art::Ptr<recob::SpacePoint>> sortedSpacePointCollection = _sputility.getSortedSPList(spacepointFromPfparticle, vertex, "NearestNeighbour");
 
       averageSPDistance = 0;
       if (sortedSpacePointCollection.size() > 1){

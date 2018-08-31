@@ -2,7 +2,9 @@
 
 namespace trackshowerseparator{
 
-  std::vector<art::Ptr<recob::SpacePoint>> SPUtility::getSortedSPList(std::vector<art::Ptr<recob::SpacePoint>> spCollection, const recob::Vertex vertex){
+  std::vector<art::Ptr<recob::SpacePoint>> SPUtility::getSortedSPList(std::vector<art::Ptr<recob::SpacePoint>> spCollection, const recob::Vertex vertex, std::string sortType){
+
+    std::cout << "space point collection size is " << spCollection.size() << std::endl;
 
     trackshowerseparator::SPUtility _sputility;
 
@@ -38,7 +40,63 @@ namespace trackshowerseparator{
 
     }
 
-    return sortedSPCollection;
+    std::cout << sortedSPCollection.size() << std::endl;
+
+    if (sortType == "VertexDistance" || sortedSPCollection.size() == 0)
+      return sortedSPCollection;
+    else if (sortType == "NearestNeighbour"){
+
+      std::vector<art::Ptr<recob::SpacePoint>> resortedSPCollection;
+
+      // start from the first entry of the sorted vector: nearest the vertex
+      art::Ptr<recob::SpacePoint> thisSP = sortedSPCollection.at(0);
+
+      // loop the spacepoints, finding the next closest to the current spacepoint
+      // and using that as the next spacepoint
+      
+      // vector of bools defines which spacepoints have already been used
+      std::vector<bool> isUsed(sortedSPCollection.size(), false);
+      isUsed.at(0) = true;
+      
+      int nearestSP = 0;
+      float shortestDistance = std::numeric_limits<float>::max();
+
+      for(size_t i_sp = 0; i_sp < sortedSPCollection.size(); i_sp++){
+        
+        // get thisSP position
+        double thissp_xyz[3] = {thisSP->XYZ()[0], thisSP->XYZ()[1], thisSP->XYZ()[2]};
+
+        for (size_t j_sp = 0; j_sp < sortedSPCollection.size(); j_sp++){
+
+         art::Ptr<recob::SpacePoint> testSP = sortedSPCollection.at(j_sp); 
+
+          // get testSP position
+          double testsp_xyz[3] = {testSP->XYZ()[0], testSP->XYZ()[1], testSP->XYZ()[2]};
+
+          // check if the distance between thisSP and the testSP is smaller than
+          // any other differences calculated so far
+          double testLength = _sputility.get3DLength(thissp_xyz, testsp_xyz);
+          if (testLength < shortestDistance && isUsed.at(j_sp) == false){
+            shortestDistance = testLength;
+            nearestSP = j_sp;
+          }
+
+        }
+
+        thisSP = sortedSPCollection.at(nearestSP);
+        isUsed.at(nearestSP) = true;
+
+        resortedSPCollection.push_back(thisSP);
+ 
+      }
+
+      return resortedSPCollection;
+
+    }
+    else{
+      std::cout << "sortType can ONLY be \"VertexDistance\" or \"NearestNeighbour\"" << std::endl;
+      throw std::exception();
+    }
 
   }
 
