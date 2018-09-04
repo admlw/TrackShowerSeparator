@@ -4,8 +4,6 @@ namespace trackshowerseparator{
 
   std::vector<art::Ptr<recob::SpacePoint>> SPUtility::getSortedSPList(std::vector<art::Ptr<recob::SpacePoint>> spCollection, const recob::Vertex vertex, std::string sortType){
 
-    std::cout << "space point collection size is " << spCollection.size() << std::endl;
-
     trackshowerseparator::SPUtility _sputility;
 
     // get vertex reconstructed xyz
@@ -40,8 +38,6 @@ namespace trackshowerseparator{
 
     }
 
-    std::cout << sortedSPCollection.size() << std::endl;
-
     if (sortType == "VertexDistance" || sortedSPCollection.size() == 0)
       return sortedSPCollection;
     else if (sortType == "NearestNeighbour"){
@@ -59,10 +55,10 @@ namespace trackshowerseparator{
       isUsed.at(0) = true;
       
       int nearestSP = 0;
-      float shortestDistance = std::numeric_limits<float>::max();
 
       for(size_t i_sp = 0; i_sp < sortedSPCollection.size(); i_sp++){
         
+        float shortestDistance = std::numeric_limits<float>::max();
         // get thisSP position
         double thissp_xyz[3] = {thisSP->XYZ()[0], thisSP->XYZ()[1], thisSP->XYZ()[2]};
 
@@ -77,6 +73,7 @@ namespace trackshowerseparator{
           // any other differences calculated so far
           double testLength = _sputility.get3DLength(thissp_xyz, testsp_xyz);
           if (testLength < shortestDistance && isUsed.at(j_sp) == false){
+            isUsed.at(j_sp) = true;
             shortestDistance = testLength;
             nearestSP = j_sp;
           }
@@ -84,7 +81,6 @@ namespace trackshowerseparator{
         }
 
         thisSP = sortedSPCollection.at(nearestSP);
-        isUsed.at(nearestSP) = true;
 
         resortedSPCollection.push_back(thisSP);
  
