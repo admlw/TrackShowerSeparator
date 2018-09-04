@@ -115,7 +115,11 @@ class TrackShowerSeparatorAna : public art::EDAnalyzer {
     float clusterPlane;
     int clusterNHits;
 
-    float averageSPDistance;
+    int spNSpacePoints;
+    float spAverageDistance;
+    float spMedianDistance;
+    float spModalDistance;
+    float spRMSDistance;
 
     std::vector<float> clusterStartCharge_v;
     std::vector<float> clusterStartAngle_v;
@@ -226,6 +230,8 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
       << "[TrackShowerSepAna] recob::PFParticle product not found." 
       << std::endl;
   }
+  std::vector< art::Ptr< recob::PFParticle > > pfpCollection;
+  art::fill_ptr_vector(pfpCollection, pfpHandle);
 
   art::Handle< std::vector<recob::Track> > trackHandle;
   e.getByLabel(fTrackLabel, trackHandle);
@@ -340,9 +346,8 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
         }
 
       }
-
       // shower like
-      if (pfp.PdgCode() == 11){
+      else if (pfp.PdgCode() == 11){
 
         pfpIsPandoraTrack = false;
         pfpIsPandoraShower = true;
@@ -373,6 +378,8 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
         }
 
       }
+      else if (pfp.PdgCode() == 14) continue;
+      else std::cout << "PFP PDG code: " << pfp.PdgCode() << std::endl;
 
       // get clusters from PFParticle
       std::vector<art::Ptr<recob::Cluster>> clustersFromPfp = pfpToCluster.at(pfp.Self());
@@ -469,7 +476,10 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
       // options for string argument here are VertexDistance or NearestNeighbour
       std::vector<art::Ptr<recob::SpacePoint>> sortedSpacePointCollection = _sputility.getSortedSPList(spacepointFromPfparticle, vertex, "NearestNeighbour");
 
-      averageSPDistance = 0;
+      spNSpacePoints = spacepointFromPfparticle.size();
+      std::cout << "n spacepoints, pre sorting: " << spNSpacePoints << " post sorting: " << sortedSpacePointCollection.size() << std::endl;
+
+      std::vector<float> spDistances_v;
       if (sortedSpacePointCollection.size() > 1){
         for (size_t i_sp = 1; i_sp < sortedSpacePointCollection.size(); i_sp++){
 
@@ -479,14 +489,20 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
           double thisSPxyz[3] = {thisSP->XYZ()[0], thisSP->XYZ()[1], thisSP->XYZ()[2]};
           double prevSPxyz[3] = {prevSP->XYZ()[0], prevSP->XYZ()[1], prevSP->XYZ()[2]};
 
-          averageSPDistance += _sputility.get3DLength(thisSPxyz, prevSPxyz);
+          spDistances_v.push_back(_sputility.get3DLength(thisSPxyz, prevSPxyz));
 
         }
 
-        averageSPDistance = averageSPDistance/(float)sortedSpacePointCollection.size();
+        spAverageDistance = TMath::Mean(spDistances_v.begin(), spDistances_v.end());
+        spMedianDistance  = TMath::Median(spDistances_v.size(), &spDistances_v[0]);
+        spRMSDistance     = TMath::RMS(spDistances_v.size(), &spDistances_v[0]);
 
       }
-      else averageSPDistance = -1;
+      else {
+        spAverageDistance = -1;
+        spMedianDistance = -1;
+        spRMSDistance = -1;
+      }
 
       // each entry is for one PFP
       ana_tree->Fill();
@@ -565,7 +581,11 @@ void TrackShowerSeparatorAna::initialiseAnalysisTree(TTree* tree, bool isSimulat
   tree->Branch("clusterPlane", "std::vector<float>", &clusterPlane_v);
   tree->Branch("clusterNHits", "std::vector<int>", &clusterNHits_v);
 
-  tree->Branch("averageSPDistance", &averageSPDistance);
+  tree->Branch("spNSpacePoints"   , &spNSpacePoints);
+  tree->Branch("spAverageDistance", &spAverageDistance);
+  tree->Branch("spMedianDistance" , &spMedianDistance);
+  //tree->Branch("spModalDistance"  , &spModalDistance);
+  tree->Branch("spRMSDistance"    , &spRMSDistance);
 
   tree->Branch("hit_peakTimes_incm", "std::vector<std::vector<float>>", &hit_peakTimes_incm);
   tree->Branch("hit_wire_incm", "std::vector<std::vector<float>>", &hit_wire_incm);
@@ -604,7 +624,10 @@ void TrackShowerSeparatorAna::prepareVariables(){
   hit_peakTimes_incm.resize(0);
   hit_wire_incm.resize(0);
 
-  averageSPDistance = -1;
+  spNSpacePoints = -1;
+  spAverageDistance = -1;
+  spMedianDistance = -1;
+  spRMSDistance = -1;
 
   std::vector<float> hit_peakTimes_incm_subv = {-1.};
   std::vector<float> hit_wire_incm_subv = {-1.};
