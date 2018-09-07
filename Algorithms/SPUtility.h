@@ -27,13 +27,24 @@ namespace trackshowerseparator{
        * of the same type, where the sorting criteria is distance from the reconstructed
        * vertex
        */
-      std::vector<art::Ptr<recob::SpacePoint>> getSortedSPList(std::vector<art::Ptr<recob::SpacePoint>> spColletion, const recob::Vertex vertex, std::string sortType);
+      std::vector<art::Ptr<recob::SpacePoint>> getSortedSPList(
+          std::vector<art::Ptr<recob::SpacePoint>> spCollection, 
+          const recob::Vertex vertex, 
+          std::string sortType);
 
       /**
        * Return 3d length between two points
        */
       float get3DLength(double* vertex_xyz, double* sp_xyz);
 
+      /**
+       * Returns the number of spacepoints in a chosen shell
+       * of defined width "shellWidth"
+       */
+      int FindNSPInShell(
+          float shellWidth, 
+          int shellNumber, 
+          std::vector<art::Ptr<recob::SpacePoint>> sortedSPCollection);
   };
 
 }

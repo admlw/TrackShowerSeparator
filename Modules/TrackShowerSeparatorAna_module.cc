@@ -39,6 +39,7 @@
 #include "lardataobj/AnalysisBase/BackTrackerMatchingData.h"
 #include "nusimdata/SimulationBase/MCParticle.h"
 #include "larcore/Geometry/Geometry.h"
+#include "larcoreobj/SummaryData/POTSummary.h"
 
 // root
 #include "TTree.h"
@@ -70,6 +71,8 @@ class TrackShowerSeparatorAna : public art::EDAnalyzer {
 
     void beginJob() override;
 
+    void endSubRun(art::SubRun const &sr) override;
+
     std::pair< const simb::MCParticle*, double > GetAssociatedMCParticle(std::vector< art::Ptr<recob::Hit> > hits, art::FindMany< simb::MCParticle, anab::BackTrackerHitMatchingData > particlesPerHit);
 
     void initialiseAnalysisTree(TTree* t, bool isSimulation);
@@ -86,6 +89,7 @@ class TrackShowerSeparatorAna : public art::EDAnalyzer {
 
     // tree
     TTree* ana_tree;
+    TTree* pot_tree;
 
     int run;
     int subrun;
@@ -141,8 +145,16 @@ class TrackShowerSeparatorAna : public art::EDAnalyzer {
     std::vector<std::vector<float>> hit_peakTimes_incm;
     std::vector<std::vector<float>> hit_wire_incm;
 
+    std::vector<std::vector<float>> sp_shellnumber_v;
+    std::vector<std::vector<float>> sp_nspinshell_v;
+
     int truthMatchPDGCode;
     float truthMatchEnergy;
+
+    // pot_tree
+    double sr_pot;
+    int sr_run;
+    int sr_sub_run;
 
     // fhicl
     std::string fSelectionLabel;
@@ -480,6 +492,7 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
       std::cout << "n spacepoints, pre sorting: " << spNSpacePoints << " post sorting: " << sortedSpacePointCollection.size() << std::endl;
 
       std::vector<float> spDistances_v;
+      std::vector<float> spDistancesZeroRemoved_v;
       if (sortedSpacePointCollection.size() > 1){
         for (size_t i_sp = 1; i_sp < sortedSpacePointCollection.size(); i_sp++){
 
@@ -494,8 +507,30 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
         }
 
         spAverageDistance = TMath::Mean(spDistances_v.begin(), spDistances_v.end());
-        spMedianDistance  = TMath::Median(spDistances_v.size(), &spDistances_v[0]);
         spRMSDistance     = TMath::RMS(spDistances_v.size(), &spDistances_v[0]);
+
+        std::sort( spDistances_v.begin(), spDistances_v.end() );
+
+        for (size_t i = 0; i < spDistances_v.size(); i++){
+
+          if (spDistances_v.at(i) !=0)
+            spDistancesZeroRemoved_v.push_back(spDistances_v.at(i));
+
+        }
+
+        for (size_t i = 0; i < spDistancesZeroRemoved_v.size(); i++){
+          std::cout << "sorted spDistancesZeroRemoved_v.at(i) with i = " << i << " " << spDistancesZeroRemoved_v.at(i) << std::endl; 
+        }
+
+        if (spDistancesZeroRemoved_v.size() == 1){
+          spMedianDistance = spDistancesZeroRemoved_v.at(0);
+        }
+        else if (spDistancesZeroRemoved_v.size() % 2){
+          spMedianDistance = spDistancesZeroRemoved_v.at(((spDistancesZeroRemoved_v.size()-1)/2)+1);
+        }
+        else{
+          spMedianDistance = (spDistancesZeroRemoved_v.at(spDistancesZeroRemoved_v.size()/2) + spDistancesZeroRemoved_v.at((spDistancesZeroRemoved_v.size()/2)-1))/2.;
+        }
 
       }
       else {
@@ -503,6 +538,32 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
         spMedianDistance = -1;
         spRMSDistance = -1;
       }
+
+      std::cout << "spDistancesZeroRemoved_v.size(): " << spDistancesZeroRemoved_v.size() << std::endl;
+      std::cout << "spMedianDistance: " << spMedianDistance << std::endl;
+
+      std::vector<float> sp_shellnumber_subv;
+      std::vector<float> sp_nspinshell_subv;
+
+      float shellWidth = 0.3;
+      int shellNumber = 0;
+      int nCollectedSpacePoints = 0;
+      while (nCollectedSpacePoints < (int)spDistancesZeroRemoved_v.size()){
+
+        float nSPInShell = _sputility.FindNSPInShell(shellWidth, shellNumber, sortedSpacePointCollection);
+        nCollectedSpacePoints += nSPInShell;
+
+        std::cout << "shell number: " << shellNumber << " nCollectedSpacePoints: " << nCollectedSpacePoints << "/" << spDistancesZeroRemoved_v.size() << std::endl;
+
+        sp_shellnumber_subv.push_back(shellNumber);
+        sp_nspinshell_subv.push_back(nSPInShell);
+
+        shellNumber++;
+
+      }
+
+      sp_shellnumber_v.push_back(sp_shellnumber_subv);
+      sp_nspinshell_v.push_back(sp_nspinshell_subv);
 
       // each entry is for one PFP
       ana_tree->Fill();
@@ -516,6 +577,11 @@ void TrackShowerSeparatorAna::beginJob()
 
   ana_tree = tfs->make<TTree>("analysis_tree", "analysis tree");
   initialiseAnalysisTree(ana_tree, !fIsData);
+
+  pot_tree = tfs->make<TTree>("pot_tree", "pot_tree");
+  pot_tree->Branch("sr_pot", &sr_pot, "sr_pot/D");
+  pot_tree->Branch("sr_run", &sr_run, "sr_run/I");
+  pot_tree->Branch("sr_sub_run", &sr_sub_run, "sr_sub_run/I");
 
 }
 
@@ -587,6 +653,9 @@ void TrackShowerSeparatorAna::initialiseAnalysisTree(TTree* tree, bool isSimulat
   //tree->Branch("spModalDistance"  , &spModalDistance);
   tree->Branch("spRMSDistance"    , &spRMSDistance);
 
+  tree->Branch("sp_shellnumber_v", "std::vector<std::vector<float>>", &sp_shellnumber_v);
+  tree->Branch("sp_nspinshell_v", "std::vector<std::vector<float>>", &sp_nspinshell_v);
+
   tree->Branch("hit_peakTimes_incm", "std::vector<std::vector<float>>", &hit_peakTimes_incm);
   tree->Branch("hit_wire_incm", "std::vector<std::vector<float>>", &hit_wire_incm);
 
@@ -640,8 +709,32 @@ void TrackShowerSeparatorAna::prepareVariables(){
   hit_wire_incm.push_back(hit_wire_incm_subv);
   hit_wire_incm.push_back(hit_wire_incm_subv);
 
+  std::vector<float> sp_shellnumber_subv = {-1.};
+  std::vector<float> sp_nspinshell_subv = {-1.};
+
+  sp_shellnumber_v.push_back(sp_shellnumber_subv);
+  sp_nspinshell_v.push_back(sp_nspinshell_subv);
+
+
   truthMatchPDGCode = 0;
   truthMatchEnergy = -1;
+
+}
+
+void TrackShowerSeparatorAna::endSubRun(art::SubRun const &sr){
+
+  art::Handle<sumdata::POTSummary> potsum_h;
+
+  if (!isData){
+    if (sr.getByLabel("generator", potsum_h)){
+      sr_pot = potsum_h->totpot;
+    }
+  }
+
+  sr_run = sr.run();
+  sr_sub_run = sr.subRun();
+
+  pot_tree->Fill();
 
 }
 

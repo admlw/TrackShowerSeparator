@@ -51,9 +51,10 @@ namespace trackshowerseparator{
       // and using that as the next spacepoint
       
       // vector of bools defines which spacepoints have already been used
-      std::vector<bool> isUsed(sortedSPCollection.size(), false);
+      std::vector<bool> isUsed;
+      isUsed.resize(sortedSPCollection.size(), false);
       isUsed.at(0) = true;
-      
+     
       int nearestSP = 0;
 
       for(size_t i_sp = 0; i_sp < sortedSPCollection.size(); i_sp++){
@@ -73,9 +74,9 @@ namespace trackshowerseparator{
           // any other differences calculated so far
           double testLength = _sputility.get3DLength(thissp_xyz, testsp_xyz);
           if (testLength < shortestDistance && isUsed.at(j_sp) == false){
-            isUsed.at(j_sp) = true;
             shortestDistance = testLength;
             nearestSP = j_sp;
+            isUsed.at(j_sp) = true;
           }
 
         }
@@ -103,6 +104,40 @@ namespace trackshowerseparator{
     std::pow(xyz_1[2]-xyz_2[2],2));
 
     return dist;
+
+  }
+
+  int SPUtility::FindNSPInShell(float shellWidth, int shellNumber, std::vector<art::Ptr<recob::SpacePoint>> sortedSPCollection){
+ 
+    trackshowerseparator::SPUtility _sputility;
+ 
+    // construct shell 
+    float lowerShell = shellNumber*shellWidth;
+    float upperShell = (shellNumber+1)*shellWidth;
+
+    art::Ptr<recob::SpacePoint> vertexSP = sortedSPCollection.at(0);
+    double vertexSP_xyz[3] = {vertexSP->XYZ()[0], vertexSP->XYZ()[1], vertexSP->XYZ()[2]};
+
+    int nSPInShell = 1;
+    for (size_t i = 1; i < sortedSPCollection.size(); i++){
+  
+      art::Ptr<recob::SpacePoint> thisSP = sortedSPCollection.at(i);
+      double thisSP_xyz[3] = {thisSP->XYZ()[0], thisSP->XYZ()[1], thisSP->XYZ()[2]};
+
+      // get 3D length
+      float thisLength = _sputility.get3DLength(vertexSP_xyz, thisSP_xyz);
+
+      if (thisLength > lowerShell && thisLength < upperShell){
+        
+        nSPInShell++;
+        
+      }
+
+    }
+
+    std::cout << "Number of SP in Shell " << shellNumber << " is " << nSPInShell << std::endl;
+
+    return nSPInShell;
 
   }
 
