@@ -148,6 +148,12 @@ class TrackShowerSeparatorAna : public art::EDAnalyzer {
     std::vector<std::vector<float>> sp_shellnumber_v;
     std::vector<std::vector<float>> sp_nspinshell_v;
 
+    std::vector<std::vector<float>> sp_segmentangle_v; 
+
+    std::vector<float> sp_x_v;
+    std::vector<float> sp_y_v;
+    std::vector<float> sp_z_v;
+
     int truthMatchPDGCode;
     float truthMatchEnergy;
 
@@ -486,13 +492,21 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
       // get PFP-associated space points
       std::vector<art::Ptr<recob::SpacePoint>> spacepointFromPfparticle = pfpToSpacePoint.at(pfp.Self());
       // options for string argument here are VertexDistance or NearestNeighbour
+      
+      std::cout << "Getting number of duplicates for spacepointFromPfparticle..." << std::endl;
+      _sputility.checkVectorForDuplicates(spacepointFromPfparticle);
+
       std::vector<art::Ptr<recob::SpacePoint>> sortedSpacePointCollection = _sputility.getSortedSPList(spacepointFromPfparticle, vertex, "NearestNeighbour");
+
+      std::cout << "Getting number of duplicates for sortedSpacePointCollection..." << std::endl;
+      _sputility.checkVectorForDuplicates(sortedSpacePointCollection);
 
       spNSpacePoints = spacepointFromPfparticle.size();
       std::cout << "n spacepoints, pre sorting: " << spNSpacePoints << " post sorting: " << sortedSpacePointCollection.size() << std::endl;
 
       std::vector<float> spDistances_v;
       std::vector<float> spDistancesZeroRemoved_v;
+
       if (sortedSpacePointCollection.size() > 1){
         for (size_t i_sp = 1; i_sp < sortedSpacePointCollection.size(); i_sp++){
 
@@ -503,6 +517,10 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
           double prevSPxyz[3] = {prevSP->XYZ()[0], prevSP->XYZ()[1], prevSP->XYZ()[2]};
 
           spDistances_v.push_back(_sputility.get3DLength(thisSPxyz, prevSPxyz));
+
+          sp_x_v.push_back((float)thisSP->XYZ()[0]);
+          sp_y_v.push_back((float)thisSP->XYZ()[1]);
+          sp_z_v.push_back((float)thisSP->XYZ()[2]);
 
         }
 
@@ -517,6 +535,11 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
             spDistancesZeroRemoved_v.push_back(spDistances_v.at(i));
 
         }
+
+        /**
+         * Algorithm 1: just take mean/median/RMS distance between a
+         * spacepoint and the next spacepoint
+         */
 
         for (size_t i = 0; i < spDistancesZeroRemoved_v.size(); i++){
           std::cout << "sorted spDistancesZeroRemoved_v.at(i) with i = " << i << " " << spDistancesZeroRemoved_v.at(i) << std::endl; 
@@ -542,6 +565,11 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
       std::cout << "spDistancesZeroRemoved_v.size(): " << spDistancesZeroRemoved_v.size() << std::endl;
       std::cout << "spMedianDistance: " << spMedianDistance << std::endl;
 
+      /**
+       * Algorithm 2: count number of hits in shells
+       * emanating out from the vertex point
+       */
+
       std::vector<float> sp_shellnumber_subv;
       std::vector<float> sp_nspinshell_subv;
 
@@ -565,10 +593,39 @@ void TrackShowerSeparatorAna::analyze(art::Event const & e)
       sp_shellnumber_v.push_back(sp_shellnumber_subv);
       sp_nspinshell_v.push_back(sp_nspinshell_subv);
 
+      /**
+       * Algorithm 3: find angle between line connecting prevSP and thisSP
+       * and that connecting thisSP to nextSP
+       *
+       * idea is that tracks should be mostly linear, showers should bounce around
+       * a lot more
+       */
+
+      std::vector<float> sp_segmentangle_subv;
+      if (sortedSpacePointCollection.size() > 2){
+
+        for (size_t i_sp = 2; i_sp < sortedSpacePointCollection.size(); i_sp++){
+         
+          art::Ptr<recob::SpacePoint> prevSP = sortedSpacePointCollection.at(i_sp-2);
+          art::Ptr<recob::SpacePoint> thisSP = sortedSpacePointCollection.at(i_sp-1);
+          art::Ptr<recob::SpacePoint> nextSP = sortedSpacePointCollection.at(i_sp);
+
+          TVector3 prev_this_segment = _sputility.GetSegment(prevSP, thisSP);
+          TVector3 this_next_segment = _sputility.GetSegment(thisSP, nextSP);
+
+          float segment_angle = _sputility.GetAngleBetweenSegments(prev_this_segment, this_next_segment);
+          
+          sp_segmentangle_subv.push_back(segment_angle);
+
+        }
+
+        sp_segmentangle_v.push_back(sp_segmentangle_subv);
+
+      }
+
       // each entry is for one PFP
       ana_tree->Fill();
     }
-
   }
 }
 
@@ -659,6 +716,12 @@ void TrackShowerSeparatorAna::initialiseAnalysisTree(TTree* tree, bool isSimulat
   tree->Branch("hit_peakTimes_incm", "std::vector<std::vector<float>>", &hit_peakTimes_incm);
   tree->Branch("hit_wire_incm", "std::vector<std::vector<float>>", &hit_wire_incm);
 
+  tree->Branch("sp_segmentangle_v", "std::vector<std::vector<float>>", &sp_segmentangle_v);
+
+  tree->Branch("sp_x_v", "std::vector<float>", &sp_x_v);
+  tree->Branch("sp_y_v", "std::vector<float>", &sp_y_v);
+  tree->Branch("sp_z_v", "std::vector<float>", &sp_z_v);
+
   if (isSimulation){
 
     tree->Branch("truthMatchPDGCode", &truthMatchPDGCode);
@@ -693,6 +756,13 @@ void TrackShowerSeparatorAna::prepareVariables(){
   hit_peakTimes_incm.resize(0);
   hit_wire_incm.resize(0);
 
+  sp_shellnumber_v.resize(0);
+  sp_nspinshell_v.resize(0);
+  sp_segmentangle_v.resize(0);
+  sp_x_v.resize(0);
+  sp_y_v.resize(0);
+  sp_z_v.resize(0);
+
   spNSpacePoints = -1;
   spAverageDistance = -1;
   spMedianDistance = -1;
@@ -715,6 +785,11 @@ void TrackShowerSeparatorAna::prepareVariables(){
   sp_shellnumber_v.push_back(sp_shellnumber_subv);
   sp_nspinshell_v.push_back(sp_nspinshell_subv);
 
+  sp_segmentangle_v.push_back(sp_shellnumber_subv);
+
+  sp_x_v.push_back(-1);
+  sp_y_v.push_back(-1);
+  sp_z_v.push_back(-1);
 
   truthMatchPDGCode = 0;
   truthMatchEnergy = -1;
