@@ -11,6 +11,7 @@
 #include "fhiclcpp/ParameterSet.h"
 #include "messagefacility/MessageLogger/MessageLogger.h"
 
+#include "TVector3.h"
 #include "TMath.h"
 #include <vector>
 #include "lardataobj/RecoBase/SpacePoint.h"
@@ -21,6 +22,11 @@ namespace trackshowerseparator{
   class SPUtility{
 
     public:
+
+      /**
+       * checks a vector to find duplicate spacepoints and prints to screen
+       */
+      void checkVectorForDuplicates(std::vector<art::Ptr<recob::SpacePoint>> spCollection);
 
       /**
        * Takes in a vector of art::Ptr<recob::SpacePoint>, and returns a sorted vector
@@ -45,6 +51,20 @@ namespace trackshowerseparator{
           float shellWidth, 
           int shellNumber, 
           std::vector<art::Ptr<recob::SpacePoint>> sortedSPCollection);
+
+      /**
+       * Returns a vector connecting two spacepoints
+       */
+      TVector3 GetSegment(
+          art::Ptr<recob::SpacePoint> a,
+          art::Ptr<recob::SpacePoint> b);
+
+      /**
+       * Gets anle between two segments
+       */
+      float GetAngleBetweenSegments(
+          TVector3 a,
+          TVector3 b);
   };
 
 }
